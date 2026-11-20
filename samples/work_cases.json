@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "case_id": "nested", "trial_id": "CY-WORK-008", "ratio": "1",
+      "samples": [
+        {"shot": 1, "reading": "0", "source": "bench/W/01", "travel_mm": "0"},
+        {"shot": 2, "reading": "8", "source": "bench/W/02", "travel_mm": "1"},
+        {"shot": 3, "reading": "8", "source": "bench/W/03", "travel_mm": "2"},
+        {"shot": 4, "reading": "3", "source": "bench/W/04", "travel_mm": "3"},
+        {"shot": 5, "reading": "4", "source": "bench/W/05", "travel_mm": "4"},
+        {"shot": 6, "reading": "5", "source": "bench/W/06", "travel_mm": "6"},
+        {"shot": 7, "reading": "1", "source": "bench/W/07", "travel_mm": "7"},
+        {"shot": 8, "reading": "9", "source": "bench/W/08", "travel_mm": "8"}
+      ],
+      "segment_endings": [[8], [2, 4, 6, 8]], "band_edges": ["0", "2", "4"],
+      "expected": {"cycles": [[4, 6, "2", "1", "1/2"], [3, 7, "7", "1", "-2"], [1, 8, "9", "1/2", "79/2"]], "band_counts": ["0", "1", "3/2"], "total_work_j": "38", "remaining_work_j": "79/2"}
+    },
+    {
+      "case_id": "same_anchors_a", "trial_id": "CY-WORK-003", "ratio": "1",
+      "samples": [
+        {"shot": 1, "reading": "0", "source": "bench/M/01", "travel_mm": "0"},
+        {"shot": 2, "reading": "1", "source": "bench/M/02", "travel_mm": "1"},
+        {"shot": 3, "reading": "2", "source": "bench/M/03", "travel_mm": "2"}
+      ],
+      "segment_endings": [[3]], "band_edges": ["0"],
+      "expected": {"cycles": [[1, 3, "2", "1/2", "2"]], "band_counts": ["1/2"], "total_work_j": "2", "remaining_work_j": "2"}
+    },
+    {
+      "case_id": "same_anchors_b", "trial_id": "CY-WORK-003", "ratio": "1",
+      "samples": [
+        {"shot": 1, "reading": "0", "source": "bench/M/01", "travel_mm": "0"},
+        {"shot": 2, "reading": "1", "source": "bench/M/02", "travel_mm": "0"},
+        {"shot": 3, "reading": "2", "source": "bench/M/03", "travel_mm": "2"}
+      ],
+      "segment_endings": [[3]], "band_edges": ["0"],
+      "expected": {"cycles": [[1, 3, "2", "1/2", "3"]], "band_counts": ["1/2"], "total_work_j": "3", "remaining_work_j": "3"}
+    },
+    {
+      "case_id": "flat", "trial_id": "CY-WORK-002", "ratio": "1",
+      "samples": [
+        {"shot": 1, "reading": "4", "source": "bench/F/01", "travel_mm": "0"},
+        {"shot": 2, "reading": "4", "source": "bench/F/02", "travel_mm": "3"}
+      ],
+      "segment_endings": [[2], [1, 2]], "band_edges": ["0"],
+      "expected": {"cycles": [], "band_counts": ["0"], "total_work_j": "12", "remaining_work_j": "12"}
+    },
+    {
+      "case_id": "single", "trial_id": "CY-WORK-001", "ratio": "1/3",
+      "samples": [{"shot": 1, "reading": "4", "source": "bench/S/01", "travel_mm": "-7/5"}],
+      "segment_endings": [[1]], "band_edges": ["0"],
+      "expected": {"cycles": [], "band_counts": ["0"], "total_work_j": "0", "remaining_work_j": "0"}
+    }
+  ]
+}
