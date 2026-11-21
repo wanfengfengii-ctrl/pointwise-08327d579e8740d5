@@ -4,13 +4,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from archive.store import ArchiveStore
-from issue.register import IssueRegister, issue_segment
-from receive.admission import receive_segment
+from issue.register import IssueRegister, issue_segment, issue_work_segment
+from receive.admission import receive_segment, receive_work_segment
 from receive.coverage import ExpectedManifest
 from receive.store import AdmissionStore
 from trial.calibration import Calibration
 from trial.plan import SegmentSpec, TrialPlan
-from trial.revisions import freeze
+from trial.revisions import freeze, freeze_work
 from trial.samples import RawSample
 from trial.store import RevisionStore
 
@@ -30,6 +30,11 @@ def input_for(loads, cuts, trial_id='cy-17'):
 
 def ledger(cycles):
     return [(entry.first.shot, entry.last.shot, entry.amplitude, entry.weight) for entry in cycles]
+
+
+def work_ledger(cycles):
+    return [(entry.first.shot, entry.last.shot, entry.amplitude, entry.weight, entry.work)
+            for entry in cycles]
 
 
 class RepositoryTest(unittest.TestCase):
@@ -57,6 +62,17 @@ class RepositoryTest(unittest.TestCase):
             wires = tuple(issue_segment(revisions, register, revision.revision_id, spec) for spec in revision.plan.segments)
         return revision, wires
 
+    def issue_work(self, loads, travels, cuts, ratio=1, trial_id='cy-17'):
+        plan, samples = input_for(loads, cuts, trial_id)
+        travel = {shot: value for shot, value in enumerate(travels, 1)}
+        with closing(RevisionStore(self.source_path)) as revisions, closing(IssueRegister(self.source_path)) as register:
+            revisions.initialize()
+            register.initialize()
+            revision = freeze_work(revisions, plan, Calibration(ratio), samples, travel)
+            wires = tuple(issue_work_segment(revisions, register, revision.revision_id, spec)
+                          for spec in revision.plan.segments)
+        return revision, wires
+
     def register(self, revision):
         return self.admissions.register_manifest(ExpectedManifest.from_revision(revision))
 
@@ -65,4 +81,11 @@ class RepositoryTest(unittest.TestCase):
         manifest_id = self.register(revision)
         for wire in reversed(wires):
             receive_segment(self.admissions, manifest_id, wire)
+        return revision, manifest_id, wires
+
+    def ready_work(self, loads, travels, cuts, ratio=1, trial_id='cy-17'):
+        revision, wires = self.issue_work(loads, travels, cuts, ratio, trial_id)
+        manifest_id = self.register(revision)
+        for wire in reversed(wires):
+            receive_work_segment(self.admissions, manifest_id, wire)
         return revision, manifest_id, wires

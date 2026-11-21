@@ -6,6 +6,7 @@ from archive.receipts import PublicationReceipt, load_receipt
 from archive.store import ArchiveStore
 from wear.bands import BandTotal
 from wear.cycles import Cycle
+from wear.work import WorkCycle
 
 
 @dataclass(frozen=True)
@@ -43,8 +44,30 @@ class ReportRecord:
 
 
 @dataclass(frozen=True)
+class WorkReportRecord:
+    report_id: int
+    manifest_id: str
+    trial_id: str
+    revision_id: str
+    parents: tuple[ParentPiece, ...]
+    band_edges: tuple[Fraction, ...]
+    cycles: tuple[WorkCycle, ...]
+    bands: tuple[BandTotal, ...]
+    total_work: Fraction
+    remaining_work: Fraction
+
+    def to_data(self):
+        return {
+            'report_id': self.report_id, 'manifest_id': self.manifest_id,
+            'trial_id': self.trial_id, 'revision_id': self.revision_id,
+            **_work_detail(self.parents, self.band_edges, self.cycles, self.bands,
+                           self.total_work, self.remaining_work),
+        }
+
+
+@dataclass(frozen=True)
 class PublishedReport:
-    report: ReportRecord
+    report: ReportRecord | WorkReportRecord
     receipt: PublicationReceipt
 
     def to_data(self):
@@ -60,19 +83,44 @@ def _detail(parents, edges, cycles, bands):
     }
 
 
-def store_report(connection, manifest, assessment):
-    expected = manifest.expected
-    parents = tuple(
+def _work_detail(parents, edges, cycles, bands, total_work, remaining_work):
+    return {
+        **_detail(parents, edges, cycles, bands),
+        'total_work_j': str(total_work),
+        'remaining_work_j': str(remaining_work),
+    }
+
+
+def _parents(manifest):
+    return tuple(
         ParentPiece(entry.spec.segment_id, entry.spec.first_shot, entry.spec.last_shot,
                     entry.identity.piece_id, entry.identity.receipt_id)
         for entry in manifest.entries
     )
+
+
+def store_report(connection, manifest, assessment):
+    expected = manifest.expected
+    parents = _parents(manifest)
     detail = _detail(parents, assessment.band_edges, assessment.cycles, assessment.bands)
     cursor = connection.execute('''
         INSERT INTO published_reports (manifest_id, trial_id, revision_id, detail) VALUES (?, ?, ?, ?)
     ''', (expected.manifest_id, expected.trial_id, expected.revision_id, json.dumps(detail, separators=(',', ':'))))
     return ReportRecord(cursor.lastrowid, expected.manifest_id, expected.trial_id, expected.revision_id,
                         parents, assessment.band_edges, assessment.cycles, assessment.bands)
+
+
+def store_work_report(connection, manifest, assessment):
+    expected = manifest.expected
+    parents = _parents(manifest)
+    detail = _work_detail(parents, assessment.band_edges, assessment.cycles, assessment.bands,
+                          assessment.total_work, assessment.remaining_work)
+    cursor = connection.execute('''
+        INSERT INTO published_work_reports (manifest_id, trial_id, revision_id, detail) VALUES (?, ?, ?, ?)
+    ''', (expected.manifest_id, expected.trial_id, expected.revision_id, json.dumps(detail, separators=(',', ':'))))
+    return WorkReportRecord(cursor.lastrowid, expected.manifest_id, expected.trial_id, expected.revision_id,
+                            parents, assessment.band_edges, assessment.cycles, assessment.bands,
+                            assessment.total_work, assessment.remaining_work)
 
 
 def read(store: ArchiveStore, report_id):
@@ -86,5 +134,21 @@ def read(store: ArchiveStore, report_id):
         tuple(Fraction(edge) for edge in detail['band_edges']),
         tuple(Cycle.from_data(entry) for entry in detail['cycles']),
         tuple(BandTotal.from_data(entry) for entry in detail['bands']),
+    )
+    return PublishedReport(record, load_receipt(snapshot))
+
+
+def read_work(store: ArchiveStore, report_id):
+    snapshot = store.read_work_snapshot(report_id)
+    if snapshot is None:
+        raise KeyError(report_id)
+    detail = json.loads(snapshot['detail'])
+    record = WorkReportRecord(
+        snapshot['report_id'], snapshot['manifest_id'], snapshot['trial_id'], snapshot['revision_id'],
+        tuple(ParentPiece(**entry) for entry in detail['parents']),
+        tuple(Fraction(edge) for edge in detail['band_edges']),
+        tuple(WorkCycle.from_data(entry) for entry in detail['cycles']),
+        tuple(BandTotal.from_data(entry) for entry in detail['bands']),
+        Fraction(detail['total_work_j']), Fraction(detail['remaining_work_j']),
     )
     return PublishedReport(record, load_receipt(snapshot))
